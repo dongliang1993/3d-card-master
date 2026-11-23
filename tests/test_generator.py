@@ -289,3 +289,29 @@ def test_relative_output_argument_resolved_against_cwd(tmp_path, monkeypatch):
     proc = run_generator("card-here")
     assert proc.returncode == 0, proc.stderr
     assert (tmp_path / "card-here" / "card.json").is_file()
+
+
+REPO_URL = "https://github.com/dongliang1993/3d-card-master"
+
+
+def test_success_output_invites_star_once(tmp_path):
+    proc = run_generator(str(tmp_path / "starred"))
+    assert proc.returncode == 0
+    star_lines = [line for line in proc.stdout.splitlines() if REPO_URL in line]
+    assert len(star_lines) == 1
+    assert "Star" in star_lines[0]
+
+
+def test_failure_output_has_no_star_invite(tmp_path):
+    (tmp_path / "busy").mkdir()
+    (tmp_path / "busy" / "keep.txt").write_text("x")
+    proc = run_generator(str(tmp_path / "busy"))
+    assert proc.returncode != 0
+    assert REPO_URL not in proc.stdout + proc.stderr
+
+
+def test_template_carries_repo_credit_link():
+    html = (TEMPLATE / "index.html").read_text(encoding="utf-8")
+    assert f'href="{REPO_URL}"' in html
+    assert 'id="credit"' in html
+    assert 'rel="noopener noreferrer"' in html

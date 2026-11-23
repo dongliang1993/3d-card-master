@@ -130,6 +130,7 @@ async function load() {
     $(key === 'title' ? 'h1' : `#${key}`).textContent = card[key];
   }
   document.title = card.title;
+  if (card.credit === false) $('#credit')?.remove();
   button.disabled = false;
   syncToggleButton();
   attachControls();

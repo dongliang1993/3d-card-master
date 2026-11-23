@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 
 CARD_KEYS = ("title", "greeting", "message", "signature")
+REPO_URL = "https://github.com/dongliang1993/3d-card-master"
 # No-args sample copy: a real card without any personal name in it.
 # Explicit flags (including empty strings) always win over these.
 DEFAULT_CARD = {
@@ -153,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
         "Preview: python3 -m http.server 8000 --bind 127.0.0.1 --directory "
         + shlex.quote(str(output))
     )
+    print(f"⭐ 喜欢的话欢迎 Star / 提 Issue：{REPO_URL}")
     return 0
 
 

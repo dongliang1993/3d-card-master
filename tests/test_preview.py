@@ -84,3 +84,42 @@ def test_preview_blocks_nonlocal_assets_even_after_customization(preview):
         })""")
         assert not escaped, 'External image left the preview origin'
         browser.close()
+
+
+REPO_URL = 'https://github.com/dongliang1993/3d-card-master'
+
+
+@pytest.mark.parametrize('width', [320, 390, 1280])
+def test_credit_link_is_shown_by_default_without_requests(preview, width):
+    with sync_playwright() as tools:
+        browser = tools.chromium.launch(args=['--disable-webgl'])
+        page = browser.new_page(viewport={'width': width, 'height': 800})
+        remote = []
+        page.on('request', lambda request: remote.append(request.url) if urlsplit(request.url).hostname not in (None, '127.0.0.1') else None)
+        page.goto(preview + 'index.html')
+        credit = page.locator('#credit')
+        expect(credit).to_be_visible()
+        expect(credit).to_have_attribute('href', REPO_URL)
+        credit_box = credit.bounding_box()
+        dock_box = page.locator('.dock').bounding_box()
+        overlaps = not (credit_box['x'] + credit_box['width'] <= dock_box['x']
+                        or dock_box['x'] + dock_box['width'] <= credit_box['x']
+                        or credit_box['y'] + credit_box['height'] <= dock_box['y']
+                        or dock_box['y'] + dock_box['height'] <= credit_box['y'])
+        assert not overlaps, 'Credit overlaps the dock'
+        assert not remote
+        browser.close()
+
+
+def test_credit_can_be_turned_off_in_card_json(preview, tmp_path):
+    import json
+    card_path = tmp_path / 'card.json'
+    card = json.loads(card_path.read_text(encoding='utf-8'))
+    card_path.write_text(json.dumps({**card, 'credit': False}, ensure_ascii=False), encoding='utf-8')
+    with sync_playwright() as tools:
+        browser = tools.chromium.launch(args=['--disable-webgl'])
+        page = browser.new_page()
+        page.goto(preview + 'index.html')
+        expect(page.locator('main')).to_have_attribute('data-renderer', 'flat', timeout=30000)
+        expect(page.locator('#credit')).to_have_count(0)
+        browser.close()

@@ -12,7 +12,10 @@
   <a href="https://3dcards.theliang.com/"><img src="https://img.shields.io/badge/live-3dcards.theliang.com-111111" alt="Live" /></a>
   <a href="https://github.com/dongliang1993/christmas-cards"><img src="https://img.shields.io/badge/web_app-christmas--cards-2b2b2b" alt="Web App" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-4c4c4c" alt="License" /></a>
+  <a href="https://github.com/dongliang1993/3d-card-master/stargazers"><img src="https://img.shields.io/github/stars/dongliang1993/3d-card-master?style=social" alt="GitHub Stars" /></a>
 </p>
+
+<p align="center">⭐ 如果它帮你做出了一张喜欢的卡片，欢迎点个 Star，让更多人看到。</p>
 
 > **源码许可 / Source terms:** 源码与内置美术素材仅授权非商业学习、修改与分发；禁止商业使用、商业产品集成、广告和品牌项目。Source and bundled artwork are available for noncommercial use only and are not OSI-approved open-source software. See [LICENSE](LICENSE).
 
@@ -102,6 +105,7 @@ python3 -m http.server 8000 --bind 127.0.0.1 --directory ./my-card
 可选样式字段：
 - `font`：手写字体风格（默认 `"hand-en"`，可选 `"hand-zh"` / `"serif"`）
 - `ink`：墨水颜色（默认 `"black"`，可选 `"red"` / `"gold"`）
+- `credit`：右下角的「Made with 3d-card-master」小字署名，默认显示；设为 `false` 即可去掉
 
 ### 方式三：替换插画、定制全新主题
 
@@ -146,6 +150,11 @@ python3 scripts/bake_card.py ./my-card
 │   └── template/            # 独立离线 3D 贺卡模板（含冬夜月光素材、Three.js 与字体）
 └── tests/                   # 脚手架、烘焙、场景与浏览器回归测试
 ```
+
+## 反馈与支持
+
+- 遇到问题、想要新主题模板或有改进建议：欢迎 [提 Issue](https://github.com/dongliang1993/3d-card-master/issues)
+- 觉得好用：点个 ⭐ Star，或把你做的卡片分享给朋友
 
 ## 运行测试
 
