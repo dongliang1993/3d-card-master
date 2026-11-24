@@ -143,6 +143,7 @@ main:not([data-renderer='webgl']) #letter {
   z-index: 20;
   display: flex;
   align-items: center;
+  gap: 0.25rem;
   padding: 0.4rem;
   border-radius: 1rem;
   border: 1px solid var(--dock-border);
@@ -151,7 +152,8 @@ main:not([data-renderer='webgl']) #letter {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
-#toggle {
+#toggle,
+#music-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,11 +167,16 @@ main:not([data-renderer='webgl']) #letter {
   cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease;
 }
-#toggle:hover:not(:disabled) { background: var(--stone-100); color: var(--text-primary); }
+#toggle:hover:not(:disabled),
+#music-toggle:hover { background: var(--stone-100); color: var(--text-primary); }
 #toggle:disabled { opacity: 0.45; cursor: wait; }
 #toggle .icon-open { display: none; }
 main[data-open='true'] #toggle .icon-closed { display: none; }
 main[data-open='true'] #toggle .icon-open { display: block; }
+#music-toggle[hidden] { display: none; }
+#music-toggle .icon-muted { display: none; }
+#music-toggle[aria-pressed='true'] .icon-sound { display: none; }
+#music-toggle[aria-pressed='true'] .icon-muted { display: block; }
 
 :focus-visible { outline: 2px solid #78716c; outline-offset: 2px; }
 

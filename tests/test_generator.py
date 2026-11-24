@@ -315,3 +315,58 @@ def test_template_carries_repo_credit_link():
     assert f'href="{REPO_URL}"' in html
     assert 'id="credit"' in html
     assert 'rel="noopener noreferrer"' in html
+
+
+# ── background music ────────────────────────────────────────────────────────
+
+
+def write_tone(path: Path, seconds: float = 1.0) -> Path:
+    import math
+    import struct
+    import wave
+
+    rate = 8000
+    frames = b"".join(
+        struct.pack("<h", int(3000 * math.sin(2 * math.pi * 440 * i / rate)))
+        for i in range(int(rate * seconds))
+    )
+    with wave.open(str(path), "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(rate)
+        out.writeframes(frames)
+    return path
+
+
+def test_music_is_copied_and_referenced(tmp_path):
+    tone = write_tone(tmp_path / "我的歌.WAV")
+    output = make_card(tmp_path, "--music", str(tone))
+    copied = output / "music" / "bgm.wav"
+    assert copied.read_bytes() == tone.read_bytes()
+    card = load_json(output / "card.json")
+    assert card["music"] == "./music/bgm.wav"
+    assert CARD_KEYS <= set(card)
+
+
+def test_music_rejects_unsupported_extension(tmp_path):
+    bad = tmp_path / "song.txt"
+    bad.write_text("not audio")
+    output = tmp_path / "card"
+    proc = run_generator(str(output), "--music", str(bad))
+    assert proc.returncode != 0
+    assert "music" in proc.stderr.lower()
+    assert not output.exists()
+
+
+def test_music_rejects_missing_file(tmp_path):
+    output = tmp_path / "card"
+    proc = run_generator(str(output), "--music", str(tmp_path / "missing.mp3"))
+    assert proc.returncode != 0
+    assert "music" in proc.stderr.lower()
+    assert not output.exists()
+
+
+def test_card_without_music_has_no_music_dir(tmp_path):
+    output = make_card(tmp_path)
+    assert not (output / "music").exists()
+    assert "music" not in load_json(output / "card.json")

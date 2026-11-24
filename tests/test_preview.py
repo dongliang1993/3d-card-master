@@ -123,3 +123,83 @@ def test_credit_can_be_turned_off_in_card_json(preview, tmp_path):
         expect(page.locator('main')).to_have_attribute('data-renderer', 'flat', timeout=30000)
         expect(page.locator('#credit')).to_have_count(0)
         browser.close()
+
+
+def _serve(directory):
+    server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=directory))
+    Thread(target=server.serve_forever, daemon=True).start()
+    return server, f'http://127.0.0.1:{server.server_port}/'
+
+
+@pytest.fixture
+def music_card(tmp_path):
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_generator import write_tone
+    tone = write_tone(tmp_path / 'tone.wav', seconds=3.0)
+    card = tmp_path / 'card'
+    subprocess.run([sys.executable, str(TEMPLATE.parents[1] / 'scripts/create_card.py'), str(card),
+                    '--music', str(tone)], check=True)
+    return card
+
+
+def test_music_starts_on_open_and_can_be_muted(music_card):
+    server, url = _serve(music_card)
+    try:
+        with sync_playwright() as tools:
+            browser = tools.chromium.launch(args=['--disable-webgl', '--autoplay-policy=user-gesture-required'])
+            page = browser.new_page(viewport={'width': 390, 'height': 844})
+            # Frame timestamps can trail performance.now(); the fade must survive that.
+            page.add_init_script("const raf = window.requestAnimationFrame.bind(window);"
+                                 "window.requestAnimationFrame = (cb) => raf((t) => cb(t - 100));")
+            page.goto(url)
+            expect(page.locator('main')).to_have_attribute('data-renderer', 'flat', timeout=30000)
+            mute = page.locator('#music-toggle')
+            expect(mute).to_be_visible()
+            assert page.evaluate("document.querySelector('#bgm').paused")
+            page.get_by_role('button', name='翻开贺卡').click()
+            page.wait_for_function("!document.querySelector('#bgm').paused", timeout=5000)
+            page.wait_for_function("document.querySelector('#bgm').volume > 0.5", timeout=4000)
+            expect(mute).to_have_attribute('aria-pressed', 'false')
+            mute.click()
+            page.wait_for_function("document.querySelector('#bgm').paused", timeout=5000)
+            expect(mute).to_have_attribute('aria-pressed', 'true')
+            mute.click()
+            page.wait_for_function("!document.querySelector('#bgm').paused", timeout=5000)
+            box = mute.bounding_box()
+            assert box['width'] >= 40 and box['height'] >= 40
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_card_without_music_shows_no_music_control(preview):
+    with sync_playwright() as tools:
+        browser = tools.chromium.launch(args=['--disable-webgl'])
+        page = browser.new_page()
+        page.goto(preview + 'index.html')
+        expect(page.locator('main')).to_have_attribute('data-renderer', 'flat', timeout=30000)
+        expect(page.locator('#music-toggle')).to_be_hidden()
+        page.get_by_role('button', name='翻开贺卡').click()
+        assert page.evaluate("!document.querySelector('#bgm').getAttribute('src')")
+        browser.close()
+
+
+@pytest.mark.parametrize('src', ['https://outside.invalid/song.mp3', '../secret.mp3', './music/../x.mp3', './art/cover.webp'])
+def test_non_local_music_is_ignored(preview, tmp_path, src):
+    import json
+    card_path = tmp_path / 'card.json'
+    card = json.loads(card_path.read_text(encoding='utf-8'))
+    card_path.write_text(json.dumps({**card, 'music': src}), encoding='utf-8')
+    with sync_playwright() as tools:
+        browser = tools.chromium.launch(args=['--disable-webgl'])
+        page = browser.new_page()
+        remote = []
+        page.on('request', lambda r: remote.append(r.url) if 'outside.invalid' in r.url else None)
+        page.goto(preview + 'index.html')
+        expect(page.locator('main')).to_have_attribute('data-renderer', 'flat', timeout=30000)
+        expect(page.locator('#music-toggle')).to_be_hidden()
+        page.get_by_role('button', name='翻开贺卡').click()
+        assert page.evaluate("!document.querySelector('#bgm').getAttribute('src')")
+        assert not remote
+        browser.close()

@@ -19,6 +19,11 @@ from PIL import Image
 
 
 def cutout_magenta(im: Image.Image, max_px: int = 1024) -> Image.Image:
+    return _crop_and_cap(magenta_rgba(im), max_px)
+
+
+def magenta_rgba(im: Image.Image) -> np.ndarray:
+    """Full-canvas RGBA with a #FF00FF backdrop keyed out and its fringe despilled."""
     rgb = np.asarray(im.convert("RGB"), dtype=np.float32)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     mag = np.minimum(r, b) - g
@@ -44,12 +49,15 @@ def cutout_magenta(im: Image.Image, max_px: int = 1024) -> Image.Image:
         w_map, c_map = nw, nc
     filled = np.where(w_map[..., None] > 1e-4, c_map / np.maximum(w_map[..., None], 1e-4), rgb)
     out_rgb = np.where((alpha < 0.98)[..., None] & (w_map > 1e-4)[..., None], filled, rgb)
-    rgba = np.dstack([out_rgb.clip(0, 255), (alpha * 255.0).clip(0, 255)]).round().astype(np.uint8)
-    return _crop_and_cap(rgba, max_px)
+    return np.dstack([out_rgb.clip(0, 255), (alpha * 255.0).clip(0, 255)]).round().astype(np.uint8)
 
 
 def cutout_checker(im: Image.Image, max_px: int = 1024) -> Image.Image:
-    """Remove neutral grey/white checkerboard pixels flood-filled from image edges."""
+    return _crop_and_cap(checker_rgba(im), max_px)
+
+
+def checker_rgba(im: Image.Image) -> np.ndarray:
+    """Full-canvas RGBA with grey/white checkerboard flood-filled from the edges removed."""
     rgb = np.asarray(im.convert("RGB"), dtype=np.float32)
     h, w, _ = rgb.shape
     chroma = rgb.max(axis=2) - rgb.min(axis=2)
@@ -79,8 +87,38 @@ def cutout_checker(im: Image.Image, max_px: int = 1024) -> Image.Image:
                 stack.append((ny, nx))
 
     alpha = np.where(visited, 0, 255).astype(np.uint8)
-    rgba = np.dstack([rgb.round().astype(np.uint8), alpha])
-    return _crop_and_cap(rgba, max_px)
+    return np.dstack([rgb.round().astype(np.uint8), alpha])
+
+
+def detect_backdrop(img: Image.Image) -> str:
+    """Classify a backdrop as 'transparent', 'magenta' or 'checker' from border pixels."""
+    if img.mode in ("RGBA", "LA") or "transparency" in img.info:
+        alpha = np.asarray(img.convert("RGBA"))[..., 3]
+        border = np.concatenate([alpha[0], alpha[-1], alpha[:, 0], alpha[:, -1]])
+        if (border < 250).mean() > 0.5:
+            return "transparent"
+    rgb = np.asarray(img.convert("RGB"), dtype=np.int16)
+    border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
+    r, g, b = border[:, 0], border[:, 1], border[:, 2]
+    if ((np.minimum(r, b) - g) > 100).mean() > 0.5:
+        return "magenta"
+    chroma = border.max(axis=1) - border.min(axis=1)
+    if ((chroma < 16) & (border.mean(axis=1) > 180)).mean() > 0.5:
+        return "checker"
+    raise ValueError(
+        "could not detect the backdrop; generate on pure #FF00FF, "
+        "a grey/white checkerboard, or as a transparent PNG"
+    )
+
+
+def remove_backdrop(img: Image.Image) -> np.ndarray:
+    """Auto-detect the backdrop and return a full-canvas RGBA array without it."""
+    kind = detect_backdrop(img)
+    if kind == "magenta":
+        return magenta_rgba(img)
+    if kind == "checker":
+        return checker_rgba(img)
+    return np.asarray(img.convert("RGBA"))
 
 
 def _crop_and_cap(rgba: np.ndarray, max_px: int) -> Image.Image:

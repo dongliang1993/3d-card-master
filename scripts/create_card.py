@@ -3,11 +3,12 @@
 
 Usage:
     python3 create_card.py OUTPUT [--title T] [--greeting G]
-                               [--message M] [--signature S]
+                               [--message M] [--signature S] [--music FILE]
 
 Creates OUTPUT (a new directory) with the template copied into it and an
 editable UTF-8 ``card.json`` holding the four personalization keys
-(``title``, ``greeting``, ``message``, ``signature``).
+(``title``, ``greeting``, ``message``, ``signature``). With ``--music`` the
+audio file is copied to ``music/bgm.<ext>`` and referenced as ``"music"``.
 
 Safety contract:
   * Refuses to touch an OUTPUT that exists and is non-empty (never clobbers).
@@ -27,6 +28,8 @@ from pathlib import Path
 
 CARD_KEYS = ("title", "greeting", "message", "signature")
 REPO_URL = "https://github.com/dongliang1993/3d-card-master"
+MUSIC_EXTENSIONS = (".mp3", ".m4a", ".ogg", ".wav")
+MUSIC_MAX_BYTES = 20 * 1024 * 1024
 # No-args sample copy: a real card without any personal name in it.
 # Explicit flags (including empty strings) always win over these.
 DEFAULT_CARD = {
@@ -71,6 +74,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help="closing signature (default: empty)",
     )
+    parser.add_argument(
+        "--music",
+        default=None,
+        help="optional background music file (" + ", ".join(MUSIC_EXTENSIONS)
+        + "); plays after the card is first opened",
+    )
     return parser.parse_args(argv)
 
 
@@ -104,6 +113,39 @@ def resolve_output(raw: str, template: Path) -> Path:
     return output
 
 
+def resolve_music(raw: str | None) -> Path | None:
+    """Validate an optional --music file before anything is written."""
+    if raw is None:
+        return None
+    path = Path(raw).expanduser()
+    if not path.is_file():
+        raise CardError(f"music file not found: {path}")
+    if path.suffix.lower() not in MUSIC_EXTENSIONS:
+        raise CardError(
+            f"unsupported music format {path.suffix or '(none)'}; use one of "
+            + ", ".join(MUSIC_EXTENSIONS)
+        )
+    size = path.stat().st_size
+    if size > MUSIC_MAX_BYTES:
+        raise CardError(
+            f"music file is {size // (1024 * 1024)} MB; keep it under "
+            f"{MUSIC_MAX_BYTES // (1024 * 1024)} MB so the card stays light"
+        )
+    return path
+
+
+def copy_music(music: Path, output: Path) -> str:
+    """Copy the music into OUTPUT/music and return its card.json reference."""
+    name = "bgm" + music.suffix.lower()
+    target = output / "music" / name
+    try:
+        target.parent.mkdir(exist_ok=True)
+        shutil.copyfile(music, target)
+    except OSError as err:
+        raise CardError(f"could not copy music to {target}: {err}") from err
+    return f"./music/{name}"
+
+
 def copy_template(template: Path, output: Path) -> None:
     """Copy the packaged template into a fresh OUTPUT directory."""
     try:
@@ -113,9 +155,13 @@ def copy_template(template: Path, output: Path) -> None:
         raise CardError(f"could not create output {output}: {err}") from err
 
 
-def write_card_json(output: Path, values: dict[str, str]) -> None:
-    """Write the editable UTF-8 card.json with the four personalization keys."""
+def write_card_json(
+    output: Path, values: dict[str, str], music: str | None = None
+) -> None:
+    """Write the editable UTF-8 card.json (four text keys, optional music)."""
     card = {key: values.get(key, "") for key in CARD_KEYS}
+    if music is not None:
+        card = {**card, "music": music}
     path = output / "card.json"
     try:
         path.write_text(
@@ -138,18 +184,22 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         output = resolve_output(args.output, template)
+        music = resolve_music(args.music)
         copy_template(template, output)
+        music_ref = copy_music(music, output) if music else None
         values = {}
         for key in CARD_KEYS:
             given = getattr(args, key)
             values[key] = DEFAULT_CARD[key] if given is None else given
         values["message"] = values["message"].replace("\\n", "\n")
-        write_card_json(output, values)
+        write_card_json(output, values, music_ref)
     except CardError as err:
         print(f"error: {err}", file=sys.stderr)
         return 2
     print(f"Created card at {output}")
     print(f"Edit {output / 'card.json'} (UTF-8): title, greeting, message, signature.")
+    if music_ref:
+        print(f"Music: {music_ref} plays after the card is first opened.")
     print(
         "Preview: python3 -m http.server 8000 --bind 127.0.0.1 --directory "
         + shlex.quote(str(output))

@@ -10,7 +10,6 @@
 
 <p align="center">
   <a href="https://3dcards.theliang.com/"><img src="https://img.shields.io/badge/live-3dcards.theliang.com-111111" alt="Live" /></a>
-  <a href="https://github.com/dongliang1993/christmas-cards"><img src="https://img.shields.io/badge/web_app-christmas--cards-2b2b2b" alt="Web App" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-4c4c4c" alt="License" /></a>
   <a href="https://github.com/dongliang1993/3d-card-master/stargazers"><img src="https://img.shields.io/github/stars/dongliang1993/3d-card-master?style=social" alt="GitHub Stars" /></a>
 </p>
@@ -81,7 +80,8 @@ python3 scripts/create_card.py ./my-card \
   --title "冬夜月光" \
   --greeting "Friend" \
   --message "愿你在这个安静的冬夜里，心里有光，手里有暖。" \
-  --signature "Leon"
+  --signature "Leon" \
+  --music ./song.mp3   # 可选：背景音乐（mp3 / m4a / ogg / wav，20 MB 以内）
 ```
 
 2. **在本地浏览器预览**（`file://` 下 ES Modules 会被浏览器拦截，请通过本地 HTTP 服务打开）：
@@ -106,30 +106,31 @@ python3 -m http.server 8000 --bind 127.0.0.1 --directory ./my-card
 - `font`：手写字体风格（默认 `"hand-en"`，可选 `"hand-zh"` / `"serif"`）
 - `ink`：墨水颜色（默认 `"black"`，可选 `"red"` / `"gold"`）
 - `credit`：右下角的「Made with 3d-card-master」小字署名，默认显示；设为 `false` 即可去掉
+- `music`：背景音乐，填卡片目录里 `music/` 下的文件，如 `"./music/bgm.mp3"`；只支持本地文件，不支持网络链接。第一次翻开卡片时淡入循环播放，底部会出现静音按钮。请只使用你有权使用的音乐
 
 ### 方式三：替换插画、定制全新主题
 
-若要替换内置素材做新主题（如生日、新年、周年纪念），流程详见 [references/paper-art.md](references/paper-art.md)，核心工具脚本如下（需要 `Pillow` 与 `numpy`）：
+若要换成全新画面（如生日、新年、周年纪念），用你手边的生图工具（或自己的插画）按 [references/ai-art.md](references/ai-art.md) 出图，通常只要 2 张：1 张底图 + 1 张把所有前景元素排在纯品红底上的「贴纸拼版」（一次画完，画风更统一）。切开拼版、写好 `theme.json` 描述每个元素的位置和高低后，一条命令完成组装（需要 `Pillow` 与 `numpy`）：
 
 ```bash
-# 1. 从纯品红 (#FF00FF) 或棋盘格背景中抠出透明元素图
-python3 scripts/cutout_element.py raw-cake.png ./my-card/art/elements/cake.webp
-
-# 2. 烘焙冷压棉纸法线图与粗糙度/金属度贴图（含烫金自动识别）
-python3 scripts/bake_card.py ./my-card
+python3 scripts/split_sheet.py ./work/sheet.png ./work/pieces     # 切成 piece-01.png… 并生成编号总览图
+python3 scripts/assemble_theme.py ./my-card ./work/theme.json
 ```
 
-通过编辑 `./my-card/art/layout.json` 可以调整：
-- 封面层叠元素位置、缩放、厚度与旋转
-- `glow`（窗景暖光位置与脉冲强度）
-- `particles`（`snow` 飘雪 / `gold` 星火 / `petals` 花瓣，或设 `null` 关闭）
-- `live`（各元素的微风晃动幅度、周期与锚点）
+它会自动抠图、清掉旧的冬夜月光素材、合成平面封面并烘焙棉纸浮雕与烫金贴图；输入有误时会指出问题且不改动卡片。`theme.json` 中还可以配置：
+- `glow`（烛火 / 窗灯暖光的位置与脉冲强度）
+- `particles`（`snow` 飘雪 / `gold` 星火 / `petals` 花瓣）
+- `live`（底图局部的微风晃动幅度、周期与锚点，详见 [references/paper-art.md](references/paper-art.md)）
+- `motifs`（内页左页与封底的压印徽章）、`backLine`（封底落款）
+
+单独处理某一张图时，也可以直接用 `scripts/cutout_element.py`（抠图）和 `scripts/bake_card.py`（烘焙）。
 
 ## 交互说明
 
 - **单击卡片** 或 **点击底部翻页按钮**：翻开 / 合上贺卡
 - **按住拖拽**：360° 观察卡片厚度、棉纸浮雕与烫金反光（松手带柔和惯性）
 - **移动鼠标**：指针跟随暖光掠过封面，激发纸纹与烫金高光
+- **背景音乐**（配置了 `music` 时）：第一次翻开时响起，点击底部喇叭按钮静音 / 恢复；切到其他标签页会自动暂停
 - **键盘**：`Enter` / `Space` 翻开或合上，`Escape` 合上
 
 ## 目录结构
@@ -140,9 +141,12 @@ python3 scripts/bake_card.py ./my-card
 ├── README.md                # 本说明文档
 ├── LICENSE                  # PolyForm Noncommercial 1.0.0 许可协议
 ├── references/
+│   ├── ai-art.md            # 用生图工具做新封面：出图清单、提示词模板、theme.json
 │   └── paper-art.md         # 纸雕分层美术、抠图、烘焙与验收指南
 ├── scripts/
 │   ├── create_card.py       # 脚手架生成脚本（仅使用 Python 标准库）
+│   ├── assemble_theme.py    # 一键组装新主题：抠图 + 清理旧素材 + 合成封面 + 烘焙
+│   ├── split_sheet.py       # 把一张贴纸拼版切成多个独立透明元素
 │   ├── cutout_element.py    # 品红/棋盘背景透明抠图脚本
 │   └── bake_card.py         # 棉纸法线 + 烫金 PBR 贴图烘焙脚本
 ├── assets/
@@ -166,7 +170,7 @@ python3 -m pytest -q
 
 ## 素材与第三方说明
 
-- **内置「冬夜月光」卡片插画与 3D 渲染模板**：来自 [christmas-cards](https://github.com/dongliang1993/christmas-cards) 主项目（在线体验：[3dcards.theliang.com](https://3dcards.theliang.com/)），随 Skill 以相同的非商业条款分享，不得单独商用
+- **内置「冬夜月光」卡片插画与 3D 渲染模板**：来自 christmas-cards 主项目（在线体验：[3dcards.theliang.com](https://3dcards.theliang.com/)），随 Skill 以相同的非商业条款分享，不得单独商用
 - **Three.js**（`assets/template/vendor/three.*.min.js`）：MIT License，见 [assets/template/vendor/LICENSE](assets/template/vendor/LICENSE)
 - **字体**（`assets/template/vendor/fonts/`）：Caveat、Long Cang（Google Fonts），SIL Open Font License 1.1，见 [assets/template/vendor/fonts/OFL-NOTICE.txt](assets/template/vendor/fonts/OFL-NOTICE.txt)
 

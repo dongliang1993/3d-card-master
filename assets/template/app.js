@@ -1,3 +1,5 @@
+import { createMusic } from './music.js';
+
 const $ = (selector) => document.querySelector(selector);
 const main = $('main');
 const stage = $('#stage');
@@ -5,6 +7,7 @@ const button = $('#toggle');
 const statusLine = $('#status');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 let scene;
+let music = { start() {} };
 let open = false;
 
 const ORBIT_PER_PX = { yaw: 0.0065, pitch: 0.005 };
@@ -24,6 +27,7 @@ function flip() {
   $('#letter').hidden = !open;
   syncToggleButton();
   scene?.setOpen(open);
+  if (open) music.start();
 }
 
 function attachControls() {
@@ -131,6 +135,7 @@ async function load() {
   }
   document.title = card.title;
   if (card.credit === false) $('#credit')?.remove();
+  music = createMusic(card.music, $('#bgm'), $('#music-toggle'));
   button.disabled = false;
   syncToggleButton();
   attachControls();

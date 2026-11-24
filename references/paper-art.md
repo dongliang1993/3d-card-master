@@ -12,7 +12,7 @@
 ## 2. 拆图与 AI 出图规则
 
 - **底图**：正面平视、铺满整张画布；留出纸纹、双层压纹边框与窗内远景。不要画卡片外轮廓、文字、歪斜透视、投影、镜面高光或前景大元素。
-- **前景元素**：用纯品红 `#FF00FF` 平底逐个出图（避免模型把灰白棋盘格画进 RGB），再用随包脚本干净抠图去杂边：
+- **前景元素**：用纯品红 `#FF00FF` 平底逐个出图（避免模型把灰白棋盘格画进 RGB）。完整出图清单、逐张提示词与 `theme.json` 写法见 [ai-art.md](ai-art.md)；`assemble_theme.py` 会自动识别品红 / 棋盘格 / 透明背景并抠图。只需单独处理一张时也可直接用：
   - 品红底：`python3 "$SKILL_DIR/scripts/cutout_element.py" raw.png ./my-card/art/elements/item.webp`
   - 棋盘格底：`python3 "$SKILL_DIR/scripts/cutout_element.py" raw.png ./my-card/art/elements/item.webp --mode checker`
 - **参考出图提示**：「奶白棉纸上的分层纸雕贺卡，正面扫描视角，均匀漫射光，无字无投影无透视；主题为【生日花园】。底图只画双线压纹边框和拱形窗内暮色远景；前景元素分别在 `#FF00FF` 纯品红底上单独出图。暖金色 `#CFA44E/#E6C97E` 仅限丝带金边、星星与烛火。」
